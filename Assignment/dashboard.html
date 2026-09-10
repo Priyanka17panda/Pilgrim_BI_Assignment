@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>D2C Brand Performance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0f1115; --card:#171a21; --border:#2a2e38;
+    --text:#e8e9ec; --muted:#9aa0ac;
+    --accent:#6ee7b7; --accent2:#60a5fa; --accent3:#f0abfc; --accent4:#fbbf24;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    padding:28px 40px 50px;
+  }
+  header{margin-bottom:28px;}
+  header h1{font-size:26px; font-weight:700; letter-spacing:-0.3px;}
+  header p{color:var(--muted); margin-top:6px; font-size:14px;}
+
+  .kpi-row{display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:28px;}
+  .kpi{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:18px 20px;
+  }
+  .kpi .label{color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:0.06em;}
+  .kpi .value{font-size:28px; font-weight:700; margin-top:6px;}
+  .kpi.g .value{color:var(--accent);}
+  .kpi.b .value{color:var(--accent2);}
+  .kpi.p .value{color:var(--accent3);}
+  .kpi.y .value{color:var(--accent4);}
+
+  .grid{display:grid; grid-template-columns:1.2fr 1fr; gap:20px; margin-bottom:20px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:20px;
+  }
+  .card h2{font-size:15px; font-weight:600; margin-bottom:14px; color:var(--text);}
+  .card .sub{color:var(--muted); font-size:12px; margin-top:-10px; margin-bottom:14px;}
+  canvas{max-height:300px;}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th, td{text-align:left; padding:8px 6px; border-bottom:1px solid var(--border);}
+  th{color:var(--muted); font-weight:600; font-size:11px; text-transform:uppercase;}
+  tr:last-child td{border-bottom:none;}
+  .bar-cell{display:flex; align-items:center; gap:8px;}
+  .bar-track{flex:1; background:#232630; border-radius:6px; height:8px; overflow:hidden;}
+  .bar-fill{height:100%; border-radius:6px; background:linear-gradient(90deg,var(--accent2),var(--accent));}
+
+  footer{margin-top:30px; color:var(--muted); font-size:11px; text-align:center;}
+
+  @media (max-width:900px){
+    .kpi-row{grid-template-columns:repeat(2,1fr);}
+    .grid, .grid3{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>D2C Brand Performance Dashboard</h1>
+  <p>Channel &amp; product performance snapshot — generated from the orders, customers, product catalog and pricing datasets</p>
+</header>
+
+<div class="kpi-row">
+  <div class="kpi g"><div class="label">Total Revenue</div><div class="value">₹1,83,357</div></div>
+  <div class="kpi b"><div class="label">Total Orders</div><div class="value">51</div></div>
+  <div class="kpi p"><div class="label">Avg Order Value</div><div class="value">₹3,595</div></div>
+  <div class="kpi y"><div class="label">Units Sold</div><div class="value">151</div></div>
+</div>
+
+<div class="grid">
+  <div class="card">
+    <h2>Revenue by Channel</h2>
+    <div class="sub">Discount-adjusted revenue, App leads followed by Instagram</div>
+    <canvas id="channelChart"></canvas>
+  </div>
+  <div class="card">
+    <h2>Revenue Share by Category</h2>
+    <div class="sub">Wellness &amp; Skincare drive ~70% of revenue</div>
+    <canvas id="categoryChart"></canvas>
+  </div>
+</div>
+
+<div class="grid3">
+  <div class="card">
+    <h2>Top 10 Products by Revenue</h2>
+    <canvas id="productChart"></canvas>
+  </div>
+  <div class="card">
+    <h2>Channel Performance Detail</h2>
+    <div class="sub">Orders &amp; revenue per channel</div>
+    <table id="channelTable">
+      <thead><tr><th>Channel</th><th>Orders</th><th>Revenue</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>Built for the BI Intern Assignment — D2C Analytics Challenge · Single-file HTML, no server required</footer>
+
+<script>
+const channels = ["App","Instagram","Website","WhatsApp","Amazon"];
+const channelRev = [78385.95, 44409.55, 25920.24, 20636.16, 14004.96];
+const channelOrders = [15, 11, 8, 9, 7];
+
+const cats = ["Wellness","Skincare","Haircare","Makeup"];
+const catRev = [65337.06, 64722.59, 38013.82, 15283.39];
+
+const topProducts = ["Vitamin C Serum","Collagen Supplement","Conditioner","Ashwagandha","Night Cream","Moisturizer","Hair Mask","Vitamin D3","Eyeliner","Probiotic Blend"];
+const topProdRev = [30730.35, 20429.18, 14298.75, 14100.0, 13540.8, 13172.6, 12145.2, 10751.58, 10709.26, 10605.76];
+
+const palette = ["#6ee7b7","#60a5fa","#f0abfc","#fbbf24","#f87171","#38bdf8"];
+
+Chart.defaults.color = "#9aa0ac";
+Chart.defaults.borderColor = "#2a2e38";
+
+new Chart(document.getElementById('channelChart'), {
+  type: 'bar',
+  data: {
+    labels: channels,
+    datasets: [{
+      label: 'Revenue (₹)',
+      data: channelRev,
+      backgroundColor: '#60a5fa',
+      borderRadius: 6
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, grid: { color:'#2a2e38' } }, x: { grid: { display:false } } }
+  }
+});
+
+new Chart(document.getElementById('categoryChart'), {
+  type: 'doughnut',
+  data: {
+    labels: cats,
+    datasets: [{
+      data: catRev,
+      backgroundColor: palette,
+      borderColor: '#171a21',
+      borderWidth: 3
+    }]
+  },
+  options: {
+    plugins: { legend: { position: 'bottom', labels:{boxWidth:12} } }
+  }
+});
+
+new Chart(document.getElementById('productChart'), {
+  type: 'bar',
+  data: {
+    labels: topProducts,
+    datasets: [{
+      label: 'Revenue (₹)',
+      data: topProdRev,
+      backgroundColor: '#6ee7b7',
+      borderRadius: 6
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    plugins: { legend: { display:false } },
+    scales: { x: { beginAtZero:true, grid:{color:'#2a2e38'} }, y: { grid:{display:false} } }
+  }
+});
+
+const tbody = document.querySelector('#channelTable tbody');
+const maxRev = Math.max(...channelRev);
+channels.forEach((ch, i) => {
+  const pct = (channelRev[i]/maxRev*100).toFixed(0);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${ch}</td>
+    <td>${channelOrders[i]}</td>
+    <td>₹${channelRev[i].toLocaleString('en-IN', {maximumFractionDigits:0})}</td>
+    <td style="width:35%">
+      <div class="bar-cell">
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+      </div>
+    </td>`;
+  tbody.appendChild(tr);
+});
+</script>
+
+</body>
+</html>
